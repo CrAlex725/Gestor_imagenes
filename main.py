@@ -1,3 +1,8 @@
+from src.modelos.imagen import Imagen
+from src.modelos.constantes import EXTENSIONES_IMAGEN
+from src.servicios.procesador_imagen import ProcesadorImagen
+from src.utilidades.serializador_imagen import SerializadorImagen
+
 import os
 import time
 from datetime import datetime
@@ -8,106 +13,6 @@ import cv2
 import numpy as np
 from PIL import Image
 import mimetypes
-
-EXTENSIONES_IMAGEN = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
-
-class Imagen:
-    def __init__(self, ruta_completa, ruta_base):
-        
-        self.ruta_completa = ruta_completa
-        self.ruta_base = ruta_base
-        
-        self.nombre_completo = os.path.basename(ruta_completa)
-        self.nombre = os.path.splitext(self.nombre_completo)[0]
-        self.extension = os.path.splitext(self.nombre_completo)[1]
-        
-        self.tamaño = os.path.getsize(ruta_completa)
-        
-        self.fecha_creacion = datetime.fromtimestamp(
-            os.path.getctime(ruta_completa)
-        ).strftime('%Y-%m-%d %H:%M:%S')
-        self.fecha_modificacion = datetime.fromtimestamp(
-            os.path.getmtime(ruta_completa)
-        ).strftime('%Y-%m-%d %H:%M:%S')
-        
-        self.ruta_relativa = os.path.relpath(ruta_completa, ruta_base)
-        
-        self.resolucion = None
-        self.hash = None
-        self.etiquetas = []
-        self.estado = "Pendiente"
-        self.ubicaciones = []
-        
-        self.es_valida = True
-        self.mensaje_error = None
-        
-    def obtener_resolucion(self):
-        try:
-            if not os.path.exists(self.ruta_completa):
-                self.resolucion = "0x0"
-                self.mensaje_error = f"Error el Archivo {self.nombre_completo} No existe"
-                return self.resolucion
-            
-            with Image.open(self.ruta_completa) as img:
-                ancho ,alto = img.size
-                self.resolucion = f"{ancho}x{alto}"
-                return self.resolucion
-                
-        except Exception as e:
-            self.es_valida = False
-            self.mensaje_error = f"Error al obtener resolución {e}"
-            self.resolucion = "0x0"
-            return self.resolucion
-    
-    def calcular_hash(self, tamaño_hash=32):
-        try:
-            
-            if self.extension.lower() not in EXTENSIONES_IMAGEN:
-                self.es_valida = False
-                self.mensaje_error = f"Extensión no soportada: {self.extension}"
-                self.hash = None
-                return None
-            
-            img = Image.open(self.ruta_completa)
-            img = img.resize((tamaño_hash, tamaño_hash), Image.Resampling.LANCZOS)
-            img = img.convert('L')
-            
-            pixels = np.array(img, dtype=np.float32)
-            dct = cv2.dct(pixels)
-            dct_8x8 = dct[:8, :8]
-            mediana = np.median(dct_8x8[1: ,:])
-            
-            hash_bits = []
-            for y in range(8):
-                for x in range(8):
-                    hash_bits.append(1 if dct_8x8[y, x] > mediana else 0)
-            
-            hash_binario = ''.join(str(bit) for bit in hash_bits)
-            self.hash = hex(int(hash_binario, 2))[2:].zfill(16)
-            
-            return self.hash
-            
-        except Exception as e:
-            self.es_valida = False
-            self.mensaje_error = f"Error al calcular hash: {e}"
-            self.hash = None
-            return None
-        
-    def to_dict(self):
-        return {
-            "nombre": self.nombre,
-            "extension": self.extension,
-            "hash": self.hash,
-            "estado": self.estado,
-            "resolucion": self.resolucion,
-            "tamaño": self.tamaño,
-            "ruta": self.ruta_relativa,
-            "ubicaciones": self.ubicaciones,
-            "etiquetas": self.etiquetas,
-            "fecha_creacion": self.fecha_creacion,
-            "fecha_modificacion": self.fecha_modificacion
-        }
-
 
 class CarpetaImagenes:
     def __init__(self, ruta_base):
@@ -159,6 +64,7 @@ class ProcesadorHash:  # ← Nombre con mayúscula (convención Python)
         self.tamaño_hash = tamaño_hash
         self.algoritmo = algoritmo
         self.extensiones_validas = EXTENSIONES_IMAGEN
+        self.procesador_imagen = ProcesadorImagen()
         
         self.estadisticas = {
             'procesadas': 0,
@@ -173,7 +79,7 @@ class ProcesadorHash:  # ← Nombre con mayúscula (convención Python)
         """
         self.estadisticas['procesadas'] += 1
         
-        resultado = imagen.calcular_hash(self.tamaño_hash)
+        resultado = self.procesador_imagen.calcular_hash(imagen, self.tamaño_hash)
         
         if resultado:
             self.estadisticas['exitosas'] += 1
@@ -496,6 +402,7 @@ class Clasificar:
         
 class Exportar():
     def __init__(self, diccionario_agrupado):
+        self.serializador = SerializadorImagen()
         self.datos_entrada = diccionario_agrupado
         self.resultados = None
         self.resumen = None
@@ -506,7 +413,7 @@ class Exportar():
         for key, value in diccionario_agrupado.items():
             if not isinstance(value, list):
                 raise TypeError(f"El valor para la clave {key} debe ser una lista")
-            if value and not hasattr(value[0], 'to_dict'):
+            if value and not isinstance(value[0], Imagen):
                 raise TypeError(f"Los elementos deben ser objetos de la clase Imagen")
     
     def crear_json(self):
@@ -557,7 +464,7 @@ class Exportar():
             self.resultados["resumen"]["Pendientes"] +=1
             
     def _crear_archivo_limpio(self, imagen):
-        datos_base = imagen.to_dict()
+        datos_base = self.serializador.to_dict(imagen)
         
         archivo_limpio = {
             "nombre": datos_base.get('nombre', ''),
@@ -629,7 +536,7 @@ class Exportar():
 
 if __name__ == "__main__":
     # 1. Crear el gestor de carpeta/ Escanear
-    carpeta = CarpetaImagenes(f"C:/Users/cralex/Desktop/USB/---")
+    carpeta = CarpetaImagenes(f"C:/Users/crale/Desktop/USB/---")
     imagenes = carpeta.escanear()
     
     # 2. Procesar

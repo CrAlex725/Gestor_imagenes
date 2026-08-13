@@ -1,0 +1,1 @@
+EXTENSIONES_IMAGEN = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
