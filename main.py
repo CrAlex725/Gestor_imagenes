@@ -1,7 +1,10 @@
 from src.modelos.imagen import Imagen
 from src.modelos.constantes import EXTENSIONES_IMAGEN
-from src.servicios.procesador_imagen import ProcesadorImagen
+from src.servicios.procesamiento.procesador_imagen import ProcesadorImagen
 from src.utilidades.serializador_imagen import SerializadorImagen
+
+from src.modelos.carpeta_imagenes import CarpetaImagenes
+from src.servicios.procesamiento.procesador_carpetas import ProcesadorCarpetas
 
 import os
 import time
@@ -13,50 +16,6 @@ import cv2
 import numpy as np
 from PIL import Image
 import mimetypes
-
-class CarpetaImagenes:
-    def __init__(self, ruta_base):
-        self.ruta_base = ruta_base
-        self.imagenes = []
-        self.extensiones_validas = EXTENSIONES_IMAGEN
-        self.estadisticas = {
-            'total_archivos': 0,
-            'imagenes_encontradas': 0,
-            'archivos_saltados': 0
-        }
-        
-    def escanear(self):
-        print(f"Escaneando: {self.ruta_base}")
-        
-        for carpeta, sub_carpetas, archivos in os.walk(self.ruta_base):
-            for archivo in archivos:
-                self.estadisticas['total_archivos'] +=1
-                ruta_completa = os.path.join(carpeta, archivo)
-                extension = os.path.splitext(archivo)[1].lower()
-                
-                if extension in self.extensiones_validas:
-                    imagen = Imagen(ruta_completa, self.ruta_base)
-                    self.imagenes.append(imagen)
-                    self.estadisticas['imagenes_encontradas'] +=1
-                    print(f"Imagen Encontrada: {archivo}")
-                else:
-                    self.estadisticas['archivos_saltados'] +=1
-                    print(f"Saltando: {archivo} ({extension})")
-        
-        print(f"\nResumen del escaneo")
-        print(f"    - Total archivos: {self.estadisticas['total_archivos']}")
-        print(f"    - Imagenes: {self.estadisticas['imagenes_encontradas']}")
-        print(f"    - Saltados: {self.estadisticas['archivos_saltados']}")
-        
-        return self.imagenes
-    
-    def obtener_imagenes_validas(self):
-        
-        return [img for img in self.imagenes if img.es_valida]
-    
-    def obtener_imagenes_invalidas(self):
-        return [img for img in self.imagenes if not img.es_valida]
-    
 
 class ProcesadorHash:  # ← Nombre con mayúscula (convención Python)
     
@@ -537,7 +496,8 @@ class Exportar():
 if __name__ == "__main__":
     # 1. Crear el gestor de carpeta/ Escanear
     carpeta = CarpetaImagenes(f"C:/Users/crale/Desktop/USB/---")
-    imagenes = carpeta.escanear()
+    procesar_carpeta = ProcesadorCarpetas()
+    imagenes = procesar_carpeta.escanear(carpeta)
     
     # 2. Procesar
     procesador = ProcesadorHash()
