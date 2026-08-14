@@ -6,6 +6,9 @@ from src.utilidades.serializador_imagen import SerializadorImagen
 from src.modelos.carpeta_imagenes import CarpetaImagenes
 from src.servicios.procesamiento.procesador_carpetas import ProcesadorCarpetas
 
+from src.modelos.configuracion_hash import ConfiguracionHash
+from src.servicios.procesamiento.procesador_hash import ProcesadorHash
+
 import os
 import time
 from datetime import datetime
@@ -16,88 +19,6 @@ import cv2
 import numpy as np
 from PIL import Image
 import mimetypes
-
-class ProcesadorHash:  # ← Nombre con mayúscula (convención Python)
-    
-    def __init__(self, tamaño_hash=32, algoritmo='dct'):
-        self.tamaño_hash = tamaño_hash
-        self.algoritmo = algoritmo
-        self.extensiones_validas = EXTENSIONES_IMAGEN
-        self.procesador_imagen = ProcesadorImagen()
-        
-        self.estadisticas = {
-            'procesadas': 0,
-            'exitosas': 0,
-            'fallidas': 0,
-            'errores': []
-        }
-    
-    def procesar_una(self, imagen):
-        """
-        Procesa UNA sola imagen llamando a su método
-        """
-        self.estadisticas['procesadas'] += 1
-        
-        resultado = self.procesador_imagen.calcular_hash(imagen, self.tamaño_hash)
-        
-        if resultado:
-            self.estadisticas['exitosas'] += 1
-        else:
-            self.estadisticas['fallidas'] += 1
-            self.estadisticas['errores'].append({
-                'imagen': imagen.nombre,
-                'error': imagen.mensaje_error
-            })
-        
-        return resultado
-    
-    def procesar_lote(self, imagenes):
-        """
-        Procesa un lote de imágenes
-        """
-        print(f"\n🔄 Procesando {len(imagenes)} imágenes con {self.algoritmo}...")
-        
-        # Reiniciar estadísticas
-        self.reset_estadisticas()
-        
-        for i, imagen in enumerate(imagenes, 1):
-            print(f"   [{i}/{len(imagenes)}] {imagen.nombre}", end="")
-            
-            resultado = self.procesar_una(imagen)
-            
-            if resultado:
-                print(f" ✅ Hash: {resultado[:8]}...")
-            else:
-                print(f" ❌ {imagen.mensaje_error}")
-        
-        print(f"\n📊 Resumen del procesamiento:")
-        print(f"   - Procesadas: {self.estadisticas['procesadas']}")
-        print(f"   - Exitosas: {self.estadisticas['exitosas']}")
-        print(f"   - Fallidas: {self.estadisticas['fallidas']}")
-        
-        if self.estadisticas['errores']:
-            print(f"   - Errores: {len(self.estadisticas['errores'])}")
-            for error in self.estadisticas['errores'][:3]:  # Mostrar primeros 3
-                print(f"      • {error['imagen']}: {error['error']}")
-        
-        return self.estadisticas
-    
-    def reset_estadisticas(self):
-        self.estadisticas = {
-            'procesadas': 0,
-            'exitosas': 0,
-            'fallidas': 0,
-            'errores': []
-        }
-    
-    def obtener_validas(self, imagenes):
-        """Filtra imágenes con hash válido"""
-        return [img for img in imagenes if img.hash is not None and img.es_valida]
-    
-    def obtener_invalidas(self, imagenes):
-        """Filtra imágenes sin hash válido"""
-        return [img for img in imagenes if img.hash is None or not img.es_valida]
-    
 
 class GestorDuplicados:
     def __init__(self):
@@ -501,8 +422,10 @@ if __name__ == "__main__":
     
     # 2. Procesar
     procesador = ProcesadorHash()
+    procesador_imagen = ProcesadorImagen()
+    configuracion_hash = ConfiguracionHash(procesador_imagen)
     for imagen in imagenes:
-        procesador.procesar_una(imagen)
+        procesador.procesar_una(imagen, procesador_imagen, configuracion_hash)
         
     gestor = GestorDuplicados()
     gestor.agrupar_hash(imagenes)
