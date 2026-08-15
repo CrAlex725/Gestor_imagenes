@@ -9,6 +9,9 @@ from src.servicios.procesamiento.procesador_carpetas import ProcesadorCarpetas
 from src.modelos.configuracion_hash import ConfiguracionHash
 from src.servicios.procesamiento.procesador_hash import ProcesadorHash
 
+from src.modelos.lista_duplicados import ListaDuplicados
+from src.servicios.gestor.gestor_duplicados import GestorDuplicados
+
 import os
 import time
 from datetime import datetime
@@ -20,67 +23,15 @@ import numpy as np
 from PIL import Image
 import mimetypes
 
-class GestorDuplicados:
-    def __init__(self):
-        self.grupos_hash = {}
-        
-    def agrupar_hash(self, imagenes):
-        for imagen in imagenes:
-            if imagen.hash is None:
-                continue
-            
-            if imagen.hash not in self.grupos_hash:
-                self.grupos_hash[imagen.hash] = []
-                
-            self.grupos_hash[imagen.hash].append(imagen)
-                
-        return self.grupos_hash
-    
-    def agrupar_resolucion(self, imagenes):
-        grupos = {}
-        for imagen in imagenes:
-            if imagen.resolucion is None:
-                continue
-            
-            grupos.setdefault(imagen.resolucion, []).append(imagen)
-            
-        return grupos
-        
-    def agrupar_tamano(self, imagenes):
-        grupos = {}
-        for imagen in imagenes:
-            if imagen.tamaño is None:
-                continue
-            
-            grupos.setdefault(imagen.tamaño, []).append(imagen)
-                
-        return grupos
-    
-    def agrupar_fecha(self, imagenes):
-        grupos = {}
-        for imagen in imagenes:
-            if imagen.fecha_creacion is None:
-                continue
-                
-            grupos.setdefault(imagen.fecha_creacion, []).append(imagen)
-                
-        return grupos
-    
-    def obtener_duplicados(self):
-        return {hash: lista for hash, lista in self.grupos_hash.items() if len(lista) > 1}
-    
-    def obtener_unicos(self):
-        return {hash: lista for hash, lista in self.grupos_hash.items() if len(lista) == 1}
-    
 
 class AsignadorEtiquetas:
     
-    def asignar_ubicaciones_y_etiquetas(self, imagenes, gestor_duplicados):
+    def asignar_ubicaciones_y_etiquetas(self, imagenes, lista_duplicados):
         """
         Asigna ubicaciones y etiquetas a todas las imágenes
         """
         # 1. Obtener los grupos de duplicados
-        grupos = gestor_duplicados.grupos_hash
+        grupos = lista_duplicados.grupos_hash
         
         # 2. Procesar cada grupo
         for hash_imagen, lista_imagenes in grupos.items():
@@ -157,11 +108,12 @@ class AsignadorEtiquetas:
         return [os.sep.join(partes)]
 
 class Clasificar:
-    def __init__(self, gestor_duplicados):
+    def __init__(self, lista_duplicados, gestor_duplicados):
         self.gestor_duplicados = gestor_duplicados
+        self.lista_duplicados = lista_duplicados
         
     def clasificarImagenes(self):
-        imagenes = self.gestor_duplicados.grupos_hash
+        imagenes = self.lista_duplicados.grupos_hash
         for hash_image, lista_image in imagenes.items():
             if len(lista_image) == 1:
                 lista_image[0].estado = "Conservar"
@@ -416,7 +368,7 @@ class Exportar():
 
 if __name__ == "__main__":
     # 1. Crear el gestor de carpeta/ Escanear
-    carpeta = CarpetaImagenes(f"C:/Users/crale/Desktop/USB/---")
+    carpeta = CarpetaImagenes(f"C:/Users/crale/Desktop/USB/-Arte/Animatic")
     procesar_carpeta = ProcesadorCarpetas()
     imagenes = procesar_carpeta.escanear(carpeta)
     
@@ -427,16 +379,18 @@ if __name__ == "__main__":
     for imagen in imagenes:
         procesador.procesar_una(imagen, procesador_imagen, configuracion_hash)
         
+    lista_duplic = ListaDuplicados()
     gestor = GestorDuplicados()
-    gestor.agrupar_hash(imagenes)
+    
+    gestor.agrupar_hash(imagenes, lista_duplic)
         
     asignador = AsignadorEtiquetas()
-    asignador.asignar_ubicaciones_y_etiquetas(imagenes, gestor)
+    asignador.asignar_ubicaciones_y_etiquetas(imagenes, lista_duplic)
     
-    clasificador = Clasificar(gestor)
+    clasificador = Clasificar(lista_duplic, gestor)
     clasificador.clasificarImagenes()
     
-    export = Exportar(gestor.grupos_hash)
+    export = Exportar(lista_duplic.grupos_hash)
     
     resultados = export.exportar("resultados_finales.json")
     
