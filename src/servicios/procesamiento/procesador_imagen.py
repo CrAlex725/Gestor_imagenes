@@ -9,7 +9,8 @@ class ProcesadorImagen:
     def obtener_resolucion(self, imagen):
         try:
             if not os.path.exists(imagen.ruta_completa):
-                imagen.resolucion = "0x0"
+                imagen.es_valida = False
+                imagen.resolucion = None
                 imagen.mensaje_error = f"Error el Archivo {imagen.nombre_completo} No existe"
                 
                 return imagen.resolucion
@@ -22,8 +23,8 @@ class ProcesadorImagen:
         except Exception as e:
             imagen.es_valida = False
             imagen.mensaje_error = f"Error al obtener resolución {e}"
-            imagen.resolucion = "0x0"
-            return imagen.resolucion
+            imagen.resolucion = None
+            return None
     
     def calcular_hash(self, imagen, tamaño_hash=32):
         try:

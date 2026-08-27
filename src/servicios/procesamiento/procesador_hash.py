@@ -4,8 +4,12 @@ class ProcesadorHash:
         Procesa UNA sola imagen llamando a su método
         """
         configuracion_hash.estadisticas['procesadas'] += 1
+        procesador_imagen.obtener_resolucion(imagen)
         
-        resultado = procesador_imagen.calcular_hash(imagen, configuracion_hash.tamaño_hash)
+        resultado = procesador_imagen.calcular_hash(
+            imagen, 
+            configuracion_hash.tamaño_hash
+        )
         
         if resultado:
             configuracion_hash.estadisticas['exitosas'] += 1

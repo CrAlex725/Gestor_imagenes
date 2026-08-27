@@ -18,7 +18,8 @@ from src.servicios.exportar_archivo_json import ExportarArchivoJson
 
 if __name__ == "__main__":
     # 1. Crear el gestor de carpeta/ Escanear
-    carpeta = CarpetaImagenes(f"C:/Users/crale/Desktop/USB/-Arte/Animatic")
+    ruta = input("Ruta de Careta: ")
+    carpeta = CarpetaImagenes(ruta)
     procesar_carpeta = ProcesadorCarpetas()
     imagenes = procesar_carpeta.escanear(carpeta)
     

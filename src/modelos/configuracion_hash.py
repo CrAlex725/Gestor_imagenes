@@ -1,4 +1,5 @@
 from src.modelos.constantes import EXTENSIONES_IMAGEN
+
 class ConfiguracionHash:  # ← Nombre con mayúscula (convención Python)
     
     def __init__(self, procesador_imagen, tamaño_hash=32, algoritmo='dct'):
